@@ -92,7 +92,7 @@ export default {
   computed: {
     specificity() {
       const res = calculate(this.selector);
-      return res && res.length > 0 ? res[0] : { parts: [] };
+      return res && res.length > 0 ? res[0] : { parts: [], specificityArray: [0, 0, 0, 0] };
     },
     selectorParts() {
       let index = 0;
