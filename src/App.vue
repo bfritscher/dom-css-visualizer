@@ -110,7 +110,10 @@ export default {
       if (index < this.selector.length) {
         parts.push({
           type: "whitespace",
-          selector: `${this.selector.substr(t, this.selector.length - t)} `
+          selector: `${this.selector.substr(
+            index,
+            this.selector.length - index
+          )} `
         });
       }
       return parts;
