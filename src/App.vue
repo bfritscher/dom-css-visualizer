@@ -1,31 +1,47 @@
 <template>
   <div>
-    <h1>DOM|CSS Visualizer</h1>
-    <h2>HTML</h2>
-    <div>
-      <textarea v-model="html" class="html-input"></textarea>
-    </div>
-    <h2>CSS</h2>
-    <div class="input-wrap">
-      <textarea divte="off" autocorrect="off" spellcheck="false" class="input" v-model="selector"></textarea>
-      <div class="selector">
-        <span v-for="part in selectorParts" :class="`type-${part.type}`">{{part.selector}}</span>
-      </div>
-    </div>
-    <h2>Specificity</h2>
-    <div class="specificity">
-      <span class="type-a">{{specificity.specificityArray[1]}}</span>
-      <span class="type-b">{{specificity.specificityArray[2]}}</span>
-      <span class="type-c">{{specificity.specificityArray[3]}}</span>
-    </div>
-    <h2>DOM Tree</h2>
-    <div id="tree" ref="tree"></div>
-    <div ref="graphOptions"></div>
-    <iframe ref="iframe"></iframe>
-    <p>
-      Inspired by
-      <a href="https://specificity.keegan.st/">Specificity Calculator</a>
-    </p>
+    <header>
+      <h1>DOM|CSS Visualizer</h1>
+    </header>
+    <main>
+      <section>
+        <h2>HTML</h2>
+        <div>
+          <textarea v-model="html" class="html-input"></textarea>
+        </div>
+        <h2>CSS</h2>
+        <div class="input-wrap">
+          <textarea
+            divte="off"
+            autocorrect="off"
+            spellcheck="false"
+            class="input"
+            v-model="selector"
+          ></textarea>
+          <div class="selector">
+            <span v-for="part in selectorParts" :class="`type-${part.type}`">{{part.selector}}</span>
+          </div>
+        </div>
+        <h2>Specificity</h2>
+        <div class="specificity">
+          <span class="type-a">{{specificity.specificityArray[1]}}</span>
+          <span class="type-b">{{specificity.specificityArray[2]}}</span>
+          <span class="type-c">{{specificity.specificityArray[3]}}</span>
+        </div>
+      </section>
+      <section>
+        <h2>DOM Tree</h2>
+        <div id="tree" ref="tree"></div>
+        <div ref="graphOptions"></div>
+      </section>
+    </main>
+    <footer>
+      <iframe ref="iframe"></iframe>
+      <p>
+        Inspired by
+        <a href="https://specificity.keegan.st/">Specificity Calculator</a>
+      </p>
+    </footer>
   </div>
 </template>
 
@@ -40,19 +56,18 @@ function buildNetwork(parent, data, parentId = "1") {
     n => Node.ELEMENT_NODE === n.nodeType
   )) {
     const id = parentId + childIndex;
-    let label = tag.tagName;
+    let label = `*${tag.tagName.toLowerCase()}*`;
     if (tag.id) {
-      label += ` #${tag.id}`;
+      label += ` _#${tag.id}_`;
     }
     const classes = [...tag.classList];
     if (classes.length > 0) {
-      label += ` .${classes.join(".")}`;
+      label += ` _.${classes.join(".")}_`;
     }
     const node = {
       id,
       label,
-      shape: "box",
-      group: 0
+      shape: "box"
     };
     data.nodes.push(node);
     data.edges.push({
@@ -63,8 +78,7 @@ function buildNetwork(parent, data, parentId = "1") {
       const style = getComputedStyle(tag);
 
       if ("50px" === style.getPropertyValue("margin-left")) {
-        //span.className = "highlighted";
-        node.group = 1;
+        node.group = "highlighted";
       }
     } catch (e) {}
     buildNetwork(tag, data, id);
@@ -74,25 +88,27 @@ function buildNetwork(parent, data, parentId = "1") {
 }
 
 export default {
-  name: "HelloWorld",
-  props: {
-    msg: String
-  },
+  name: "App",
   data() {
     return {
       html: `<h1 class="abc"></h1>
-  <ul>
-    <li class="test abc"></li>
-    <li><img></li>
-  </ul>
-  <h1 id="abc"></h1>`,
+<p></p>
+<p></p>
+<ul>
+  <li class="test abc"></li>
+  <li><img></li>
+</ul>
+<p></p>
+<h1 id="abc"></h1>`,
       selector: "li.abc"
     };
   },
   computed: {
     specificity() {
       const res = calculate(this.selector);
-      return res && res.length > 0 ? res[0] : { parts: [], specificityArray: [0, 0, 0, 0] };
+      return res && res.length > 0
+        ? res[0]
+        : { parts: [], specificityArray: [0, 0, 0, 0] };
     },
     selectorParts() {
       let index = 0;
@@ -130,9 +146,8 @@ export default {
       this.d.body.innerHTML = this.html;
       this.style.textContent = `${this.selector} { margin-left:50px; }`;
       this.$refs.tree.innerHTML = "";
-      //parseTag(this.d.body, this.$refs.tree);
       const data = buildNetwork(this.d.body, {
-        nodes: [{ id: "1", label: "body", group: 0 }],
+        nodes: [{ id: "1", label: "*body*"}],
         edges: []
       });
       const options = {
@@ -140,8 +155,8 @@ export default {
           hierarchical: {
             direction: "UD",
             sortMethod: "directed",
-            levelSeparation: 60,
-            nodeSpacing: 60,
+            levelSeparation: 100,
+            nodeSpacing: 100,
             parentCentralization: true,
             edgeMinimization: true,
             blockShifting: true
@@ -153,9 +168,20 @@ export default {
         },
         nodes: {
           borderWidth: 0,
+          color: {
+            background: "#00171d"
+          },
           font: {
+            color: 'white',
+            size: 24,
+            multi: 'md',
             face: "Lato"
           }
+        },
+        groups: {
+          highlighted: {
+            font: { color: 'black' },
+            color: { background: "#FFEB3B" } }
         },
         configure: {
           filter: n => n.includes("direction"),
@@ -194,10 +220,42 @@ export default {
 
 body {
   font-family: "Lato", sans-serif;
+  margin: 0;
+}
+
+header {
+  position: absolute;
+  display: flex;
+  width: 100%;
+  justify-content: flex-end;
+}
+
+h1 {
+  margin: 0 20px;
+}
+
+h2 {
+  margin: 0.5em 0;
+}
+
+main {
+  display: flex;
+  margin: 10px;
+}
+main > section {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 10px;
+}
+
+footer {
+  font-size: 0.8em;
+  padding: 5px;
 }
 
 #tree {
-  height: 600px;
+  flex: 1;
 }
 
 .highlighted {
@@ -226,7 +284,7 @@ iframe {
   margin: 0;
   border: none;
   background: none;
-  color: #FFF;
+  color: #fff;
   resize: none;
   outline: none;
   overflow: hidden;
@@ -236,7 +294,7 @@ iframe {
   width: 100%;
   min-height: 56px;
   color: #fff;
-  background: #002B36;
+  background: #002b36;
   white-space: pre-wrap;
   word-break: break-word;
 }
@@ -244,11 +302,11 @@ iframe {
 .input:active,
 .html-input:focus,
 .html-input:active {
-  box-shadow: 0 0 10px #00171D;
+  box-shadow: 0 0 10px #00171d;
 }
 .selector {
   min-height: 56px;
-  background: #002B36;
+  background: #002b36;
   white-space: pre-wrap;
   word-break: break-word;
 }
@@ -260,29 +318,29 @@ iframe {
   border-radius: 50%;
   font-size: 28px;
   font-weight: bold;
-  color: #FFF;
+  color: #fff;
   text-align: center;
   margin: 2px;
 }
 .selector .type-a {
-  color: #A92B68;
-  background: #A92B68;
+  color: #a92b68;
+  background: #a92b68;
 }
 .specificity .type-a {
-  background: #A92B68;
+  background: #a92b68;
 }
 .selector .type-b {
-  color: #1E6FA8;
-  background: #1E6FA8;
+  color: #1e6fa8;
+  background: #1e6fa8;
 }
 .specificity .type-b {
-  background: #1E6FA8;
+  background: #1e6fa8;
 }
 .selector .type-c {
-  color: #22817A;
-  background: #22817A;
+  color: #22817a;
+  background: #22817a;
 }
 .specificity .type-c {
-  background: #22817A;
+  background: #22817a;
 }
 </style>
