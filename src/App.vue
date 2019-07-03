@@ -49,6 +49,7 @@
 import { calculate } from "specificity";
 import "vis/dist/vis.css";
 import vis from "vis";
+let visNetwork;
 
 function buildNetwork(parent, data, parentId = "1") {
   let childIndex = 1;
@@ -143,6 +144,10 @@ export default {
   },
   methods: {
     build() {
+      if(visNetwork) {
+        visNetwork.destroy();
+      }
+      this.$refs.graphOptions.innerHTML = '';
       this.d.body.innerHTML = this.html;
       this.style.textContent = `${this.selector} { margin-left:50px; }`;
       this.$refs.tree.innerHTML = "";
@@ -189,7 +194,7 @@ export default {
           showButton: false
         }
       };
-      new vis.Network(
+      visNetwork = new vis.Network(
         this.$refs.tree,
         {
           nodes: new vis.DataSet(data.nodes),
