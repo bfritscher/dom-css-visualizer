@@ -77,7 +77,7 @@ function buildNetwork(parent, data, parentId = "1") {
     });
     try {
       const style = getComputedStyle(tag);
-
+      // if computed style matches our style definition from build
       if ("50px" === style.getPropertyValue("margin-left")) {
         node.group = "highlighted";
       }
@@ -149,6 +149,7 @@ export default {
       }
       this.$refs.graphOptions.innerHTML = '';
       this.d.body.innerHTML = this.html;
+      // using this property to detect which element gets selected
       this.style.textContent = `${this.selector} { margin-left:50px; }`;
       this.$refs.tree.innerHTML = "";
       const data = buildNetwork(this.d.body, {
@@ -215,7 +216,6 @@ export default {
 };
 </script>
 
-<!-- Add "scoped" attribute to limit CSS to this component only -->
 <style>
 @import url("https://fonts.googleapis.com/css?family=Lato:400,700&display=swap");
 
