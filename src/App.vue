@@ -1,10 +1,10 @@
 <template>
-  <div>
+  <div id="app">
     <header>
       <h1>DOM|CSS Visualizer</h1>
     </header>
     <main>
-      <section>
+      <section class="col1">
         <h2>HTML</h2>
         <div>
           <textarea v-model="html" class="html-input"></textarea>
@@ -223,20 +223,26 @@ export default {
   box-sizing: border-box;
 }
 
-body {
+html, body {
   font-family: "Lato", sans-serif;
   margin: 0;
+  height: 100%;
+}
+#app {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  padding: 10px;
+  position: relative;
 }
 
 header {
   position: absolute;
-  display: flex;
-  width: 100%;
-  justify-content: flex-end;
+  right: 20px;
 }
 
 h1 {
-  margin: 0 20px;
+  margin: 0;
 }
 
 h2 {
@@ -244,8 +250,8 @@ h2 {
 }
 
 main {
+  flex: 1;
   display: flex;
-  margin: 10px;
 }
 main > section {
   flex: 1;
@@ -254,9 +260,12 @@ main > section {
   padding: 10px;
 }
 
+.col1 {
+  max-width: 30%;
+}
+
 footer {
   font-size: 0.8em;
-  padding: 5px;
 }
 
 #tree {
