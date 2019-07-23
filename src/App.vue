@@ -1,10 +1,10 @@
 <template>
-  <div id="app">
-    <header>
+  <div id="app" :class="{embed}">
+    <header v-if="!embed">
       <h1>DOM|CSS Visualizer</h1>
     </header>
     <main>
-      <section class="col1">
+      <section class="col1" v-show="!embed">
         <h2>HTML</h2>
         <div>
           <textarea v-model="html" class="html-input"></textarea>
@@ -30,14 +30,14 @@
         </div>
       </section>
       <section>
-        <h2>DOM Tree</h2>
+        <h2 v-if="!embed">DOM Tree</h2>
         <div id="tree" ref="tree"></div>
-        <div ref="graphOptions"></div>
+        <div ref="graphOptions" v-show="!embed"></div>
       </section>
     </main>
     <footer>
       <iframe ref="iframe"></iframe>
-      <p>
+      <p v-if="!embed">
         Inspired by
         <a href="https://specificity.keegan.st/">Specificity Calculator</a>
       </p>
@@ -51,10 +51,12 @@ import "vis/dist/vis.css";
 import vis from "vis";
 let visNetwork;
 
+const skipID = "skip_me";
+
 function buildNetwork(parent, data, parentId = "1") {
   let childIndex = 1;
   for (const tag of [...parent.childNodes].filter(
-    n => Node.ELEMENT_NODE === n.nodeType
+    n => Node.ELEMENT_NODE === n.nodeType && n.id !== skipID
   )) {
     const id = parentId + childIndex;
     let label = `*${tag.tagName.toLowerCase()}*`;
@@ -101,7 +103,8 @@ export default {
 </ul>
 <p></p>
 <h1 id="abc"></h1>`,
-      selector: "li.abc"
+      selector: "li.abc",
+      embed: false
     };
   },
   computed: {
@@ -139,8 +142,23 @@ export default {
   mounted() {
     this.d = this.$refs.iframe.contentDocument;
     this.style = document.createElement("style");
-    this.d.head.append(this.style);
+    this.style.id = skipID;
     this.build();
+    //iframe embed support
+    if (window.top != window) {
+      this.embed = true;
+      this.html = '';
+      window.addEventListener('message', (message) => {
+        let txt = message.data;
+        if (typeof txt === 'object' && 'vueDetected' in txt) {
+          return;
+        }
+        if (typeof txt === 'object' && 'html' in txt) {
+          this.html = txt.html;
+          return;
+        }
+      }, false);
+    }
   },
   methods: {
     build() {
@@ -148,12 +166,18 @@ export default {
         visNetwork.destroy();
       }
       this.$refs.graphOptions.innerHTML = '';
-      this.d.body.innerHTML = this.html;
+      let startNode = this.d.body;
+      const hasHTML = this.html.toLowerCase().includes('<html');
+      if ( hasHTML) {
+        startNode = this.d.children[0];
+      }
+      startNode.innerHTML = this.html;
+      this.d.head.append(this.style);
       // using this property to detect which element gets selected
       this.style.textContent = `${this.selector} { margin-left:50px; }`;
       this.$refs.tree.innerHTML = "";
-      const data = buildNetwork(this.d.body, {
-        nodes: [{ id: "1", label: "*body*"}],
+      const data = buildNetwork(startNode, {
+        nodes: [{ id: "1", label: `*${hasHTML ? 'html' : 'body'}*`}],
         edges: []
       });
       const options = {
@@ -234,6 +258,10 @@ html, body {
   flex-direction: column;
   padding: 10px;
   position: relative;
+}
+
+#app.embed {
+  overflow: hidden;
 }
 
 header {
