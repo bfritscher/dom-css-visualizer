@@ -1,5 +1,5 @@
 <template>
-  <div id="app" :class="{embed}">
+  <div id="app" :class="{ embed }">
     <header v-if="!embed">
       <h1>DOM|CSS Visualizer</h1>
     </header>
@@ -19,14 +19,19 @@
             v-model="selector"
           ></textarea>
           <div class="selector">
-            <span v-for="part in selectorParts" :class="`type-${part.type}`">{{part.selector}}</span>
+            <span
+              v-for="(part, i) in selectorParts"
+              :class="`type-${part.type}`"
+              :key="i"
+              >{{ part.selector }}</span
+            >
           </div>
         </div>
         <h2>Specificity</h2>
         <div class="specificity">
-          <span class="type-a">{{specificity.specificityArray[1]}}</span>
-          <span class="type-b">{{specificity.specificityArray[2]}}</span>
-          <span class="type-c">{{specificity.specificityArray[3]}}</span>
+          <span class="type-a">{{ specificity.specificityArray[1] }}</span>
+          <span class="type-b">{{ specificity.specificityArray[2] }}</span>
+          <span class="type-c">{{ specificity.specificityArray[3] }}</span>
         </div>
       </section>
       <section>
@@ -55,8 +60,9 @@ const skipID = "skip_me";
 
 function buildNetwork(parent, data, parentId = "1") {
   let childIndex = 1;
+  // eslint-disable-next-line
   for (const tag of [...parent.childNodes].filter(
-    n => Node.ELEMENT_NODE === n.nodeType && n.id !== skipID
+    (n) => Node.ELEMENT_NODE === n.nodeType && n.id !== skipID
   )) {
     const id = parentId + childIndex;
     let label = `*${tag.tagName.toLowerCase()}*`;
@@ -70,12 +76,12 @@ function buildNetwork(parent, data, parentId = "1") {
     const node = {
       id,
       label,
-      shape: "box"
+      shape: "box",
     };
     data.nodes.push(node);
     data.edges.push({
       from: parentId,
-      to: id
+      to: id,
     });
     try {
       const style = getComputedStyle(tag);
@@ -83,7 +89,9 @@ function buildNetwork(parent, data, parentId = "1") {
       if ("50px" === style.getPropertyValue("margin-left")) {
         node.group = "highlighted";
       }
-    } catch (e) {}
+    } catch (e) {
+      console.log(e);
+    }
     buildNetwork(tag, data, id);
     childIndex++;
   }
@@ -104,7 +112,7 @@ export default {
 <p></p>
 <h1 id="abc"></h1>`,
       selector: "li.abc",
-      embed: false
+      embed: false,
     };
   },
   computed: {
@@ -117,11 +125,11 @@ export default {
     selectorParts() {
       let index = 0;
       const parts = [];
-      this.specificity.parts.forEach(part => {
+      this.specificity.parts.forEach((part) => {
         if (part.index > index) {
           parts.push({
             type: "whitespace",
-            selector: this.selector.substr(index, part.index - index)
+            selector: this.selector.substr(index, part.index - index),
           });
         }
         parts.push(part);
@@ -133,11 +141,11 @@ export default {
           selector: `${this.selector.substr(
             index,
             this.selector.length - index
-          )} `
+          )} `,
         });
       }
       return parts;
-    }
+    },
   },
   mounted() {
     this.d = this.$refs.iframe.contentDocument;
@@ -147,28 +155,37 @@ export default {
     //iframe embed support
     if (window.top != window) {
       this.embed = true;
-      this.html = '';
-      window.addEventListener('message', (message) => {
-        let txt = message.data;
-        if (typeof txt === 'object' && 'vueDetected' in txt) {
-          return;
-        }
-        if (typeof txt === 'object' && 'html' in txt) {
-          this.html = txt.html;
-          return;
-        }
-      }, false);
+      this.html = "";
+      window.addEventListener(
+        "message",
+        (message) => {
+          let txt = message.data;
+          if (typeof txt === "object" && "vueDetected" in txt) {
+            return;
+          }
+          if (typeof txt === "object" && "html" in txt) {
+            this.html = txt.html;
+            return;
+          }
+        },
+        false
+      );
     }
+    window.addEventListener("resize", () => {
+      if (visNetwork) {
+        visNetwork.redraw();
+      }
+    })
   },
   methods: {
     build() {
-      if(visNetwork) {
+      if (visNetwork) {
         visNetwork.destroy();
       }
-      this.$refs.graphOptions.innerHTML = '';
+      this.$refs.graphOptions.innerHTML = "";
       let startNode = this.d.body;
-      const hasHTML = this.html.toLowerCase().includes('<html');
-      if ( hasHTML) {
+      const hasHTML = this.html.toLowerCase().includes("<html");
+      if (hasHTML) {
         startNode = this.d.children[0];
       }
       startNode.innerHTML = this.html;
@@ -177,10 +194,13 @@ export default {
       this.style.textContent = `${this.selector} { margin-left:50px; }`;
       this.$refs.tree.innerHTML = "";
       const data = buildNetwork(startNode, {
-        nodes: [{ id: "1", label: `*${hasHTML ? 'html' : 'body'}*`}],
-        edges: []
+        nodes: [{ id: "1", label: `*${hasHTML ? "html" : "body"}*` }],
+        edges: [],
       });
       const options = {
+        autoResize: false,
+        height: "100%",
+        width: "100%",
         layout: {
           hierarchical: {
             direction: "UD",
@@ -189,45 +209,46 @@ export default {
             nodeSpacing: 100,
             parentCentralization: true,
             edgeMinimization: true,
-            blockShifting: true
-          }
+            blockShifting: true,
+          },
         },
         interaction: { dragNodes: false },
         physics: {
-          enabled: false
+          enabled: false,
         },
         nodes: {
           borderWidth: 0,
           color: {
-            background: "#00171d"
+            background: "#00171d",
           },
           font: {
-            color: 'white',
+            color: "white",
             size: 24,
-            multi: 'md',
-            face: "Lato"
-          }
+            multi: "md",
+            face: "Lato",
+          },
         },
         groups: {
           highlighted: {
-            font: { color: 'black' },
-            color: { background: "#FFEB3B" } }
+            font: { color: "black" },
+            color: { background: "#FFEB3B" },
+          },
         },
         configure: {
-          filter: n => n.includes("direction"),
+          filter: (n) => n.includes("direction"),
           container: this.$refs.graphOptions,
-          showButton: false
-        }
+          showButton: false,
+        },
       };
       visNetwork = new vis.Network(
         this.$refs.tree,
         {
           nodes: new vis.DataSet(data.nodes),
-          edges: new vis.DataSet(data.edges)
+          edges: new vis.DataSet(data.edges),
         },
         options
       );
-    }
+    },
   },
   watch: {
     html() {
@@ -235,8 +256,8 @@ export default {
     },
     selector() {
       this.build();
-    }
-  }
+    },
+  },
 };
 </script>
 
@@ -247,7 +268,8 @@ export default {
   box-sizing: border-box;
 }
 
-html, body {
+html,
+body {
   font-family: "Lato", sans-serif;
   margin: 0;
   height: 100%;
