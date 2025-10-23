@@ -1,49 +1,47 @@
 {
   "name": "dom-css-selector-visualizer",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
+  "type": "module",
   "scripts": {
-    "serve": "vue-cli-service serve",
-    "build": "vue-cli-service build",
-    "lint": "vue-cli-service lint"
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "lint": "eslint . --ext .vue,.js --fix"
   },
   "dependencies": {
-    "specificity": "0.4.1",
-    "vis": "4.21.0",
-    "vue": "2.6.12"
+    "@csstools/selector-specificity": "^5.0.0",
+    "postcss-selector-parser": "^7.1.0",
+    "vis-network": "^10.0.2",
+    "vue": "^3.5.22"
   },
   "devDependencies": {
-    "@vue/cli-plugin-babel": "4.5.11",
-    "@vue/cli-plugin-eslint": "4.5.11",
-    "@vue/cli-service": "4.5.11",
-    "babel-eslint": "10.0.2",
-    "eslint": "7.19.0",
-    "eslint-plugin-vue": "7.5.0",
-    "vue-template-compiler": "2.6.12"
+    "@vitejs/plugin-vue": "^6.0.1",
+    "eslint": "^9.38.0",
+    "eslint-plugin-vue": "^10.5.1",
+    "vite": "^7.1.12"
   },
   "eslintConfig": {
     "root": true,
     "env": {
-      "node": true
+      "node": true,
+      "browser": true,
+      "es2021": true
     },
     "extends": [
-      "plugin:vue/essential",
+      "plugin:vue/vue3-recommended",
       "eslint:recommended"
     ],
     "rules": {},
     "parserOptions": {
-      "parser": "babel-eslint"
-    }
-  },
-  "postcss": {
-    "plugins": {
-      "autoprefixer": {}
+      "ecmaVersion": "latest",
+      "sourceType": "module"
     }
   },
   "browserslist": [
     "> 1%",
     "last 2 versions",
-    "not ie <= 8"
+    "not dead"
   ],
   "keywords": [],
   "description": ""

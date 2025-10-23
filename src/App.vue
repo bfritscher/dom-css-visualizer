@@ -1,5 +1,5 @@
 <template>
-  <div id="app" :class="{ embed }">
+  <div :class="{ embed }">
     <header v-if="!embed">
       <h1>DOM|CSS Visualizer</h1>
     </header>
@@ -7,16 +7,23 @@
       <section class="col1" v-show="!embed">
         <h2>HTML</h2>
         <div>
-          <textarea v-model="html" class="html-input"></textarea>
+          <textarea
+            v-model="html"
+            class="html-input"
+            aria-label="HTML input"
+            placeholder="Enter your HTML here..."
+          ></textarea>
         </div>
         <h2>CSS</h2>
         <div class="input-wrap">
           <textarea
-            divte="off"
+            autocomplete="off"
             autocorrect="off"
             spellcheck="false"
             class="input"
             v-model="selector"
+            aria-label="CSS selector input"
+            placeholder="Enter CSS selector (e.g., div.class, #id, ul > li)"
           ></textarea>
           <div class="selector">
             <span
@@ -26,18 +33,40 @@
               >{{ part.selector }}</span
             >
           </div>
+          <div v-if="hasError" class="error-message">
+            ⚠️ Invalid CSS selector
+          </div>
         </div>
         <h2>Specificity</h2>
-        <div class="specificity">
-          <span class="type-a">{{ specificity.specificityArray[1] }}</span>
-          <span class="type-b">{{ specificity.specificityArray[2] }}</span>
-          <span class="type-c">{{ specificity.specificityArray[3] }}</span>
+        <div class="specificity-container">
+          <div
+            v-for="(spec, index) in specificity.selectors"
+            :key="index"
+            class="specificity-row"
+          >
+            <div class="specificity">
+              <span class="type-a">{{ spec.a }}</span>
+              <span class="type-b">{{ spec.b }}</span>
+              <span class="type-c">{{ spec.c }}</span>
+            </div>
+            <div class="selector-label" v-if="specificity.selectors.length > 1">
+              {{ spec.selector }}
+            </div>
+          </div>
         </div>
       </section>
       <section>
-        <h2 v-if="!embed">DOM Tree</h2>
+        <h2 v-if="!embed">
+          DOM Tree
+          <button 
+            @click="toggleLayoutDirection" 
+            class="layout-toggle-btn"
+            :title="layoutDirection === 'UD' ? 'Switch to Left-Right layout' : 'Switch to Top-Down layout'"
+          >
+            {{ layoutDirection === 'UD' ? '→' : '↓' }}
+          </button>
+        </h2>
         <div id="tree" ref="tree"></div>
-        <div ref="graphOptions" v-show="!embed"></div>
       </section>
     </main>
     <footer>
@@ -51,9 +80,10 @@
 </template>
 
 <script>
-import { calculate } from "specificity";
-import "vis/dist/vis.css";
-import vis from "vis";
+import parser from "postcss-selector-parser";
+import { selectorSpecificity } from "@csstools/selector-specificity";
+import "vis-network/styles/vis-network.css";
+import { Network, DataSet } from "vis-network/standalone";
 let visNetwork;
 
 const skipID = "skip_me";
@@ -84,18 +114,109 @@ function buildNetwork(parent, data, parentId = "1") {
       to: id,
     });
     try {
-      const style = getComputedStyle(tag);
-      // if computed style matches our style definition from build
-      if ("50px" === style.getPropertyValue("margin-left")) {
+      // Check if element matches the selector by using a custom data attribute
+      if (tag.hasAttribute("data-css-matched")) {
         node.group = "highlighted";
       }
     } catch (e) {
-      console.log(e);
+      // Silently ignore errors during node matching
     }
     buildNetwork(tag, data, id);
     childIndex++;
   }
   return data;
+}
+
+// Helper function to calculate specificity for a selector string
+function calculateSpecificity(selectorString) {
+  try {
+    // For empty selectors
+    if (!selectorString || !selectorString.trim()) {
+      return { a: 0, b: 0, c: 0, parts: [], selectors: [] };
+    }
+
+    // Parse the entire selector (including comma-separated ones)
+    const selectorAST = parser().astSync(selectorString);
+
+    // For comma-separated selectors, calculate specificity for each
+    let maxSpecificity = { a: 0, b: 0, c: 0 };
+    let allSelectors = [];
+
+    selectorAST.each((selector) => {
+      const specificity = selectorSpecificity(selector);
+      const selectorText = selector.toString().trim();
+
+      allSelectors.push({
+        a: specificity.a,
+        b: specificity.b,
+        c: specificity.c,
+        selector: selectorText,
+      });
+
+      // Track the highest specificity
+      if (
+        specificity.a > maxSpecificity.a ||
+        (specificity.a === maxSpecificity.a &&
+          specificity.b > maxSpecificity.b) ||
+        (specificity.a === maxSpecificity.a &&
+          specificity.b === maxSpecificity.b &&
+          specificity.c > maxSpecificity.c)
+      ) {
+        maxSpecificity = specificity;
+      }
+    });
+
+    // Collect parts for visualization
+    let allParts = [];
+
+    selectorAST.each((selector) => {
+      selector.each((node) => {
+        let partType = "c"; // default to element
+        let value = node.toString();
+
+        if (node.type === "id") {
+          partType = "a";
+        } else if (
+          node.type === "class" ||
+          node.type === "attribute" ||
+          node.type === "pseudo"
+        ) {
+          partType = "b";
+        } else if (node.type === "tag") {
+          partType = "c";
+        } else if (node.type === "combinator" || node.type === "comment") {
+          partType = "whitespace";
+        } else if (node.type === "universal") {
+          partType = "c";
+        }
+
+        // Get the proper source index
+        const sourceIndex =
+          node.sourceIndex !== undefined ? node.sourceIndex : 0;
+
+        allParts.push({
+          type: partType,
+          selector: value,
+          index: sourceIndex,
+          length: value.length,
+        });
+      });
+    });
+
+    // Sort parts by index to ensure proper order
+    allParts.sort((a, b) => a.index - b.index);
+
+    return {
+      a: maxSpecificity.a,
+      b: maxSpecificity.b,
+      c: maxSpecificity.c,
+      parts: allParts,
+      selectors: allSelectors,
+    };
+  } catch (e) {
+    console.error("Error parsing selector:", e);
+    return { a: 0, b: 0, c: 0, parts: [], selectors: [] };
+  }
 }
 
 export default {
@@ -113,37 +234,56 @@ export default {
 <h1 id="abc"></h1>`,
       selector: "li.abc",
       embed: false,
+      buildTimeout: null,
+      hasError: false,
+      layoutDirection: "UD", // 'UD' for Up-Down, 'LR' for Left-Right
     };
   },
   computed: {
     specificity() {
-      const res = calculate(this.selector);
-      return res && res.length > 0
-        ? res[0]
-        : { parts: [], specificityArray: [0, 0, 0, 0] };
+      const result = calculateSpecificity(this.selector);
+      this.hasError =
+        result.selectors.length === 0 && this.selector.trim() !== "";
+      return {
+        parts: result.parts,
+        specificityArray: [0, result.a, result.b, result.c],
+        selectors: result.selectors,
+      };
     },
     selectorParts() {
-      let index = 0;
-      const parts = [];
+      // Create a map of character positions to types
+      const charTypes = new Array(this.selector.length).fill("whitespace");
+
       this.specificity.parts.forEach((part) => {
-        if (part.index > index) {
-          parts.push({
-            type: "whitespace",
-            selector: this.selector.substr(index, part.index - index),
-          });
+        const startIndex = part.index;
+        const endIndex = startIndex + part.length;
+        for (let i = startIndex; i < endIndex && i < charTypes.length; i++) {
+          charTypes[i] = part.type;
         }
-        parts.push(part);
-        index = part.index + part.length;
       });
-      if (index < this.selector.length) {
-        parts.push({
-          type: "whitespace",
-          selector: `${this.selector.substr(
-            index,
-            this.selector.length - index
-          )} `,
-        });
+
+      // Build parts by grouping consecutive characters of the same type
+      const parts = [];
+      let currentType = null;
+      let currentStart = 0;
+
+      for (let i = 0; i <= this.selector.length; i++) {
+        const charType = i < this.selector.length ? charTypes[i] : null;
+
+        if (charType !== currentType) {
+          // Save previous part if it exists
+          if (currentType !== null) {
+            parts.push({
+              type: currentType,
+              selector: this.selector.substring(currentStart, i),
+            });
+          }
+          // Start new part
+          currentType = charType;
+          currentStart = i;
+        }
       }
+
       return parts;
     },
   },
@@ -151,7 +291,23 @@ export default {
     this.d = this.$refs.iframe.contentDocument;
     this.style = document.createElement("style");
     this.style.id = skipID;
-    this.build();
+    
+    // Wait for font to load before building (Firefox fix)
+    this.$nextTick(() => {
+      if (document.fonts && document.fonts.ready) {
+        document.fonts.ready.then(() => {
+          requestAnimationFrame(() => {
+            this.build();
+          });
+        });
+      } else {
+        // Fallback if Font Loading API is not supported
+        requestAnimationFrame(() => {
+          this.build();
+        });
+      }
+    });
+    
     //iframe embed support
     if (window.top != window) {
       this.embed = true;
@@ -175,14 +331,24 @@ export default {
       if (visNetwork) {
         visNetwork.redraw();
       }
-    })
+    });
   },
   methods: {
+    debouncedBuild() {
+      // Debounce the build to avoid excessive re-renders while typing
+      clearTimeout(this.buildTimeout);
+      this.buildTimeout = setTimeout(() => {
+        this.build();
+      }, 150);
+    },
+    toggleLayoutDirection() {
+      this.layoutDirection = this.layoutDirection === "UD" ? "LR" : "UD";
+      this.build();
+    },
     build() {
       if (visNetwork) {
         visNetwork.destroy();
       }
-      this.$refs.graphOptions.innerHTML = "";
       let startNode = this.d.body;
       const hasHTML = this.html.toLowerCase().includes("<html");
       if (hasHTML) {
@@ -190,8 +356,24 @@ export default {
       }
       startNode.innerHTML = this.html;
       this.d.head.append(this.style);
-      // using this property to detect which element gets selected
-      this.style.textContent = `${this.selector} { margin-left:50px; }`;
+
+      // Clear previous markers
+      const previousMatches = this.d.querySelectorAll("[data-css-matched]");
+      previousMatches.forEach((el) => el.removeAttribute("data-css-matched"));
+
+      // Mark matching elements with data attribute instead of using CSS hack
+      try {
+        const matches = this.d.querySelectorAll(this.selector);
+        matches.forEach((el) => {
+          if (el.id !== skipID) {
+            el.setAttribute("data-css-matched", "true");
+          }
+        });
+      } catch (e) {
+        // Invalid selector, no matches
+        console.warn("Invalid selector:", this.selector);
+      }
+
       this.$refs.tree.innerHTML = "";
       const data = buildNetwork(startNode, {
         nodes: [{ id: "1", label: `*${hasHTML ? "html" : "body"}*` }],
@@ -203,13 +385,14 @@ export default {
         width: "100%",
         layout: {
           hierarchical: {
-            direction: "UD",
+            direction: this.layoutDirection,
             sortMethod: "directed",
             levelSeparation: 100,
             nodeSpacing: 100,
             parentCentralization: true,
             edgeMinimization: true,
             blockShifting: true,
+            shakeTowards: "roots",
           },
         },
         interaction: { dragNodes: false },
@@ -220,6 +403,12 @@ export default {
           borderWidth: 0,
           color: {
             background: "#00171d",
+          },
+          margin: {
+            top: 10,
+            right: 15,
+            bottom: 10,
+            left: 15,
           },
           font: {
             color: "white",
@@ -234,17 +423,12 @@ export default {
             color: { background: "#FFEB3B" },
           },
         },
-        configure: {
-          filter: (n) => n.includes("direction"),
-          container: this.$refs.graphOptions,
-          showButton: false,
-        },
       };
-      visNetwork = new vis.Network(
+      visNetwork = new Network(
         this.$refs.tree,
         {
-          nodes: new vis.DataSet(data.nodes),
-          edges: new vis.DataSet(data.edges),
+          nodes: new DataSet(data.nodes),
+          edges: new DataSet(data.edges),
         },
         options
       );
@@ -252,11 +436,18 @@ export default {
   },
   watch: {
     html() {
-      this.build();
+      this.debouncedBuild();
     },
     selector() {
-      this.build();
+      this.debouncedBuild();
     },
+  },
+  beforeUnmount() {
+    // Cleanup
+    clearTimeout(this.buildTimeout);
+    if (visNetwork) {
+      visNetwork.destroy();
+    }
   },
 };
 </script>
@@ -275,14 +466,20 @@ body {
   height: 100%;
 }
 #app {
-  height: 100%;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+#app > div {
+  flex: 1;
   display: flex;
   flex-direction: column;
   padding: 10px;
   position: relative;
+  min-height: 0;
 }
 
-#app.embed {
+#app > div.embed {
   overflow: hidden;
 }
 
@@ -297,11 +494,42 @@ h1 {
 
 h2 {
   margin: 0.5em 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.layout-toggle-btn {
+  background: transparent;
+  border: 1px solid rgba(30, 111, 168, 0.3);
+  color: rgba(30, 111, 168, 0.6);
+  font-size: 16px;
+  width: 28px;
+  height: 28px;
+  border-radius: 4px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  padding: 0;
+  line-height: 1;
+}
+
+.layout-toggle-btn:hover {
+  background: rgba(30, 111, 168, 0.1);
+  color: #1e6fa8;
+  border-color: rgba(30, 111, 168, 0.6);
+}
+
+.layout-toggle-btn:active {
+  transform: scale(0.95);
 }
 
 main {
   flex: 1;
   display: flex;
+  overflow: hidden;
 }
 main > section {
   flex: 1;
@@ -310,8 +538,31 @@ main > section {
   padding: 10px;
 }
 
+main > section:first-child {
+  overflow-y: auto;
+}
+
+main > section:last-child {
+  overflow: hidden;
+  min-height: 0;
+}
+
 .col1 {
   max-width: 30%;
+  min-width: 300px;
+}
+
+@media (max-width: 768px) {
+  main {
+    flex-direction: column;
+  }
+  .col1 {
+    max-width: 100%;
+  }
+  header {
+    position: static;
+    text-align: center;
+  }
 }
 
 footer {
@@ -331,6 +582,12 @@ iframe {
 }
 .input-wrap {
   position: relative;
+}
+.error-message {
+  color: #ff4444;
+  font-size: 14px;
+  margin-top: 5px;
+  font-weight: bold;
 }
 .input,
 .selector {
@@ -374,6 +631,20 @@ iframe {
   white-space: pre-wrap;
   word-break: break-word;
 }
+.specificity-container {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.specificity-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.specificity {
+  display: flex;
+  gap: 4px;
+}
 .specificity span {
   height: 42px;
   width: 42px;
@@ -384,7 +655,14 @@ iframe {
   font-weight: bold;
   color: #fff;
   text-align: center;
-  margin: 2px;
+}
+.selector-label {
+  font-family: monospace;
+  font-size: 16px;
+  color: #666;
+  background: #f0f0f0;
+  padding: 4px 8px;
+  border-radius: 4px;
 }
 .selector .type-a {
   color: #a92b68;
