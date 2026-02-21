@@ -233,7 +233,7 @@ export default {
 <p></p>
 <h1 id="abc"></h1>`,
       selector: "li.abc",
-      embed: false,
+      embed: window.location.search.includes("embed"),
       buildTimeout: null,
       hasError: false,
       layoutDirection: "UD", // 'UD' for Up-Down, 'LR' for Left-Right
@@ -327,13 +327,25 @@ export default {
         false
       );
     }
-    window.addEventListener("resize", () => {
-      if (visNetwork) {
-        visNetwork.redraw();
+    this.onWindowResize = () => {
+      if (!visNetwork) {
+        return;
       }
-    });
+      if (this.embed) {
+        this.syncEmbedTreeSize();
+        visNetwork.setSize("100%", "100%");
+      }
+      visNetwork.redraw();
+    };
+    window.addEventListener("resize", this.onWindowResize);
   },
   methods: {
+    syncEmbedTreeSize() {
+      if (!this.embed || !this.$refs.tree) {
+        return;
+      }
+      this.$refs.tree.style.height = `${window.innerHeight}px`;
+    },
     debouncedBuild() {
       // Debounce the build to avoid excessive re-renders while typing
       clearTimeout(this.buildTimeout);
@@ -380,7 +392,7 @@ export default {
         edges: [],
       });
       const options = {
-        autoResize: false,
+        autoResize: this.embed,
         height: "100%",
         width: "100%",
         layout: {
@@ -432,6 +444,16 @@ export default {
         },
         options
       );
+
+      if (this.embed) {
+        requestAnimationFrame(() => {
+          this.syncEmbedTreeSize();
+          if (visNetwork) {
+            visNetwork.setSize("100%", "100%");
+            visNetwork.redraw();
+          }
+        });
+      }
     },
   },
   watch: {
@@ -445,6 +467,9 @@ export default {
   beforeUnmount() {
     // Cleanup
     clearTimeout(this.buildTimeout);
+    if (this.onWindowResize) {
+      window.removeEventListener("resize", this.onWindowResize);
+    }
     if (visNetwork) {
       visNetwork.destroy();
     }
@@ -481,6 +506,23 @@ body {
 
 #app > div.embed {
   overflow: hidden;
+  position: fixed;
+  inset: 0;
+  padding: 0;
+}
+
+#app > div.embed main {
+  height: 100vh;
+  min-height: 0;
+}
+
+#app > div.embed main > section {
+  padding: 0;
+  min-height: 0;
+}
+
+#app > div.embed footer {
+  display: none;
 }
 
 header {
@@ -571,6 +613,11 @@ footer {
 
 #tree {
   flex: 1;
+}
+
+#app > div.embed #tree {
+  height: 100%;
+  min-height: 100vh;
 }
 
 .highlighted {
